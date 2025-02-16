@@ -1,209 +1,231 @@
 import { useState } from 'react';
-import { 
-  TextField, 
-  Button, 
-  Grid, 
-  Typography, 
-  Autocomplete,
+import {
   Box,
-  InputAdornment
+  TextField,
+  Button,
+  Autocomplete,
+  Typography,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  InputAdornment,
 } from '@mui/material';
-import type { Meal } from '../App';
-import { predefinedFoods, PredefinedFood } from '../data/predefinedFoods';
+import { Add as AddIcon } from '@mui/icons-material';
+import { predefinedFoods } from '../data/predefinedFoods';
 
-type AddMealFormProps = {
-  onAddMeal: (meal: Omit<Meal, 'id' | 'date'>) => void;
+type Food = {
+  name: string;
+  calories: number;
+  proteins: number;
+  carbs: number;
+  fats: number;
 };
 
-const AddMealForm = ({ onAddMeal }: AddMealFormProps) => {
-  const [selectedFood, setSelectedFood] = useState<PredefinedFood | null>(null);
-  const [quantity, setQuantity] = useState('100');
-  const [customFood, setCustomFood] = useState({
+type Props = {
+  onAddMeal: (meal: {
+    name: string;
+    calories: number;
+    proteins: number;
+    carbs: number;
+    fats: number;
+  }) => void;
+};
+
+const AddMealForm = ({ onAddMeal }: Props) => {
+  const [selectedFood, setSelectedFood] = useState<Food | null>(null);
+  const [quantity, setQuantity] = useState<number>(100);
+  const [customFoods, setCustomFoods] = useState<Food[]>(() => {
+    const saved = localStorage.getItem('customFoods');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [newFoodDialogOpen, setNewFoodDialogOpen] = useState(false);
+  const [newFood, setNewFood] = useState<Food>({
     name: '',
-    calories: '',
-    proteins: '',
-    carbs: '',
-    fats: '',
+    calories: 0,
+    proteins: 0,
+    carbs: 0,
+    fats: 0,
   });
 
-  const handlePredefinedFoodSelect = (food: PredefinedFood | null) => {
-    setSelectedFood(food);
-    if (food) {
-      const ratio = Number(quantity) / 100;
-      setCustomFood({
-        name: food.name,
-        calories: (food.calories * ratio).toString(),
-        proteins: (food.proteins * ratio).toString(),
-        carbs: (food.carbs * ratio).toString(),
-        fats: (food.fats * ratio).toString(),
-      });
-    }
-  };
-
-  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newQuantity = e.target.value;
-    setQuantity(newQuantity);
-    if (selectedFood) {
-      const ratio = Number(newQuantity) / 100;
-      setCustomFood({
-        name: selectedFood.name,
-        calories: (selectedFood.calories * ratio).toString(),
-        proteins: (selectedFood.proteins * ratio).toString(),
-        carbs: (selectedFood.carbs * ratio).toString(),
-        fats: (selectedFood.fats * ratio).toString(),
-      });
-    }
-  };
-
-  const handleCustomChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCustomFood(prev => ({ ...prev, [name]: value }));
+  const handleAddCustomFood = () => {
+    const updatedCustomFoods = [...customFoods, newFood];
+    setCustomFoods(updatedCustomFoods);
+    localStorage.setItem('customFoods', JSON.stringify(updatedCustomFoods));
+    setNewFoodDialogOpen(false);
+    setSelectedFood(newFood);
+    setNewFood({
+      name: '',
+      calories: 0,
+      proteins: 0,
+      carbs: 0,
+      fats: 0,
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAddMeal({
-      name: customFood.name,
-      calories: Number(customFood.calories),
-      proteins: Number(customFood.proteins),
-      carbs: Number(customFood.carbs),
-      fats: Number(customFood.fats),
-    });
-    setSelectedFood(null);
-    setQuantity('100');
-    setCustomFood({
-      name: '',
-      calories: '',
-      proteins: '',
-      carbs: '',
-      fats: '',
-    });
+    if (selectedFood) {
+      const ratio = quantity / 100;
+      onAddMeal({
+        name: `${selectedFood.name} (${quantity}g)`,
+        calories: Math.round(selectedFood.calories * ratio),
+        proteins: Math.round(selectedFood.proteins * ratio),
+        carbs: Math.round(selectedFood.carbs * ratio),
+        fats: Math.round(selectedFood.fats * ratio),
+      });
+      setSelectedFood(null);
+      setQuantity(100);
+    }
   };
 
+  const allFoods = [...predefinedFoods, ...customFoods];
+
   return (
-    <form onSubmit={handleSubmit}>
-      <Typography variant="h6" gutterBottom>
-        Ajouter un repas
-      </Typography>
-      <Grid container spacing={2}>
-        <Grid item xs={12}>
-          <Autocomplete
-            value={selectedFood}
-            onChange={(_, newValue) => handlePredefinedFoodSelect(newValue)}
-            options={predefinedFoods}
-            groupBy={(option) => option.category}
-            getOptionLabel={(option) => option.name}
-            renderInput={(params) => (
-              <TextField
-                {...params}
-                label="Sélectionner un aliment"
-                fullWidth
-              />
-            )}
-          />
-        </Grid>
-
-        {selectedFood && (
-          <Grid item xs={12}>
+    <Box component="form" onSubmit={handleSubmit}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+        <Autocomplete
+          value={selectedFood}
+          onChange={(_, newValue) => setSelectedFood(newValue)}
+          options={allFoods}
+          getOptionLabel={(option) => option.name}
+          renderInput={(params) => (
             <TextField
+              {...params}
+              label="Sélectionner un aliment"
+              required
               fullWidth
-              type="number"
-              label="Quantité (g)"
-              value={quantity}
-              onChange={handleQuantityChange}
-              InputProps={{
-                endAdornment: <InputAdornment position="end">g</InputAdornment>,
-              }}
             />
-          </Grid>
-        )}
+          )}
+          sx={{ flex: 1 }}
+        />
+        <IconButton
+          color="primary"
+          onClick={() => setNewFoodDialogOpen(true)}
+          sx={{ alignSelf: 'center' }}
+        >
+          <AddIcon />
+        </IconButton>
+      </Box>
 
-        <Grid item xs={12}>
+      <TextField
+        type="number"
+        label="Quantité (g)"
+        value={quantity}
+        onChange={(e) => setQuantity(Number(e.target.value))}
+        required
+        fullWidth
+        InputProps={{
+          endAdornment: <InputAdornment position="end">g</InputAdornment>,
+        }}
+        sx={{ mb: 2 }}
+      />
+
+      {selectedFood && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Valeurs nutritionnelles pour {quantity}g :
+          </Typography>
+          <Typography variant="body2">
+            Calories: {Math.round((selectedFood.calories * quantity) / 100)} kcal
+          </Typography>
+          <Typography variant="body2">
+            Protéines: {Math.round((selectedFood.proteins * quantity) / 100)}g
+          </Typography>
+          <Typography variant="body2">
+            Glucides: {Math.round((selectedFood.carbs * quantity) / 100)}g
+          </Typography>
+          <Typography variant="body2">
+            Lipides: {Math.round((selectedFood.fats * quantity) / 100)}g
+          </Typography>
+        </Box>
+      )}
+
+      <Button
+        type="submit"
+        variant="contained"
+        color="primary"
+        fullWidth
+        disabled={!selectedFood}
+      >
+        Ajouter le repas
+      </Button>
+
+      <Dialog
+        open={newFoodDialogOpen}
+        onClose={() => setNewFoodDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Ajouter un nouvel aliment</DialogTitle>
+        <DialogContent>
           <TextField
+            label="Nom de l'aliment"
+            value={newFood.name}
+            onChange={(e) =>
+              setNewFood({ ...newFood, name: e.target.value })
+            }
             fullWidth
-            label="Nom du repas"
-            name="name"
-            value={customFood.name}
-            onChange={handleCustomChange}
             required
+            sx={{ mt: 2, mb: 2 }}
           />
-        </Grid>
-
-        <Grid item xs={6}>
           <TextField
-            fullWidth
+            label="Calories (pour 100g)"
             type="number"
-            label="Calories"
-            name="calories"
-            value={customFood.calories}
-            onChange={handleCustomChange}
-            required
-            InputProps={{
-              endAdornment: <InputAdornment position="end">kcal</InputAdornment>,
-            }}
-          />
-        </Grid>
-
-        <Grid item xs={6}>
-          <TextField
+            value={newFood.calories}
+            onChange={(e) =>
+              setNewFood({ ...newFood, calories: Number(e.target.value) })
+            }
             fullWidth
-            type="number"
-            label="Protéines"
-            name="proteins"
-            value={customFood.proteins}
-            onChange={handleCustomChange}
             required
-            InputProps={{
-              endAdornment: <InputAdornment position="end">g</InputAdornment>,
-            }}
+            sx={{ mb: 2 }}
           />
-        </Grid>
-
-        <Grid item xs={6}>
           <TextField
-            fullWidth
+            label="Protéines (g pour 100g)"
             type="number"
-            label="Glucides"
-            name="carbs"
-            value={customFood.carbs}
-            onChange={handleCustomChange}
+            value={newFood.proteins}
+            onChange={(e) =>
+              setNewFood({ ...newFood, proteins: Number(e.target.value) })
+            }
+            fullWidth
             required
-            InputProps={{
-              endAdornment: <InputAdornment position="end">g</InputAdornment>,
-            }}
+            sx={{ mb: 2 }}
           />
-        </Grid>
-
-        <Grid item xs={6}>
           <TextField
-            fullWidth
+            label="Glucides (g pour 100g)"
             type="number"
-            label="Lipides"
-            name="fats"
-            value={customFood.fats}
-            onChange={handleCustomChange}
+            value={newFood.carbs}
+            onChange={(e) =>
+              setNewFood({ ...newFood, carbs: Number(e.target.value) })
+            }
+            fullWidth
             required
-            InputProps={{
-              endAdornment: <InputAdornment position="end">g</InputAdornment>,
-            }}
+            sx={{ mb: 2 }}
           />
-        </Grid>
-
-        <Grid item xs={12}>
-          <Box sx={{ mt: 1 }}>
-            <Button
-              type="submit"
-              variant="contained"
-              color="primary"
-              fullWidth
-              size="large"
-            >
-              Ajouter
-            </Button>
-          </Box>
-        </Grid>
-      </Grid>
-    </form>
+          <TextField
+            label="Lipides (g pour 100g)"
+            type="number"
+            value={newFood.fats}
+            onChange={(e) =>
+              setNewFood({ ...newFood, fats: Number(e.target.value) })
+            }
+            fullWidth
+            required
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setNewFoodDialogOpen(false)}>Annuler</Button>
+          <Button
+            onClick={handleAddCustomFood}
+            variant="contained"
+            disabled={!newFood.name || !newFood.calories}
+          >
+            Ajouter
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 
