@@ -26,7 +26,7 @@ const BarcodeScanner = ({ onDetected, onError }: Props) => {
             readers: ['ean_reader', 'ean_8_reader'],
           },
         },
-        (err) => {
+        (err: Error | null) => {
           if (err) {
             console.error(err);
             if (onError) onError('Erreur d\'initialisation de la caméra');
@@ -36,7 +36,7 @@ const BarcodeScanner = ({ onDetected, onError }: Props) => {
         }
       );
 
-      Quagga.onDetected((result) => {
+      Quagga.onDetected((result: { codeResult: { code: string } }) => {
         if (result.codeResult.code) {
           onDetected(result.codeResult.code);
         }
